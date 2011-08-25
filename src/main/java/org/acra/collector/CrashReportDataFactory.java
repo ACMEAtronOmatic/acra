@@ -24,6 +24,7 @@ import android.content.Context;
 import android.content.SharedPreferences;
 import android.content.pm.PackageInfo;
 import android.os.Environment;
+import android.text.TextUtils;
 import android.text.format.Time;
 import android.util.Log;
 
@@ -121,6 +122,7 @@ public final class CrashReportDataFactory {
 
             crashReportData.put(STACK_TRACE, getStackTrace(th));
             crashReportData.put(ReportField.USER_APP_START_DATE, appStartDate.format3339(false));
+            crashReportData.put(REPORT_SENDER, getReportSender());
 
             if (isSilentReport) {
                 crashReportData.put(IS_SILENT, "true");
@@ -280,6 +282,7 @@ public final class CrashReportDataFactory {
                 Log.i(ACRA.LOG_TAG, "READ_LOGS not allowed. ACRA will not include LogCat and DropBox data.");
             }
 
+
         } catch (RuntimeException e) {
             Log.e(LOG_TAG, "Error while retrieving crash data", e);
         }
@@ -320,5 +323,18 @@ public final class CrashReportDataFactory {
         printWriter.close();
 
         return stacktraceAsString;
+    }
+
+    public String getReportSender() {
+        ReportsCrashes config = ACRA.getConfig();
+        if (!TextUtils.isEmpty(config.formKey())) {
+            return "formKey:"+config.formKey();
+        } else if (!TextUtils.isEmpty(config.formUri())) {
+            return config.formUri();
+        } else if (!TextUtils.isEmpty(config.mailTo())) {
+            return "mailto:"+config.mailTo();
+        } else {
+            return null;
+        }
     }
 }

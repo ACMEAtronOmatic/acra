@@ -283,4 +283,17 @@ public @interface ReportsCrashes {
      * @return String Array containing the names of the additional preferences.
      */
     String[] additionalSharedPreferences() default {};
+
+    /**
+     * @return Set this to true if you want to make sure that crash reports don't get posted to the wrong
+     * form / formURI / email address. This can happen when crash reports get persisted and the ACRA config changes
+     * with a new version of the app.
+     */
+    boolean checkReportSender() default false;
+
+
+    /**
+     * @return Set this to true if you want to make sure that only crashes from the current version get reported.
+     */
+    boolean checkReportVersion() default false;
 }

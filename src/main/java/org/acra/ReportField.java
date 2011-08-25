@@ -177,5 +177,9 @@ public enum ReportField {
     /**
      * SharedPreferences contents
      */
-    SHARED_PREFERENCES
+    SHARED_PREFERENCES,
+    /**
+     * The sender to deliver reports with, at the time of the crash.
+     */
+    REPORT_SENDER
 }

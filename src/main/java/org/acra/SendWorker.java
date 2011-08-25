@@ -8,10 +8,16 @@ import java.util.Arrays;
 import java.util.List;
 
 import org.acra.collector.CrashReportData;
+import org.acra.sender.EmailIntentSender;
+import org.acra.sender.GoogleFormSender;
+import org.acra.sender.HttpPostSender;
 import org.acra.sender.ReportSender;
 import org.acra.sender.ReportSenderException;
+import org.acra.util.PackageManagerWrapper;
 
 import android.content.Context;
+import android.content.pm.PackageInfo;
+import android.text.TextUtils;
 import android.util.Log;
 
 /**
@@ -140,19 +146,60 @@ final class SendWorker extends Thread {
     private void sendCrashReport(CrashReportData errorContent) throws ReportSenderException {
         boolean sentAtLeastOnce = false;
         for (ReportSender sender : reportSenders) {
-            try {
-                sender.send(errorContent);
-                // If at least one sender worked, don't re-send the report
-                // later.
-                sentAtLeastOnce = true;
-            } catch (ReportSenderException e) {
-                if (!sentAtLeastOnce) {
-                    throw e; // Don't log here because we aren't dealing with the Exception here.
-                } else {
-                    Log.w(LOG_TAG, "ReportSender of class " + sender.getClass().getName()
-                            + " failed but other senders completed their task. ACRA will not send this report again.");
+            if (shouldSend(errorContent, sender)) {
+                try {
+                    sender.send(errorContent);
+                    // If at least one sender worked, don't re-send the report
+                    // later.
+                    sentAtLeastOnce = true;
+                } catch (ReportSenderException e) {
+                    if (!sentAtLeastOnce) {
+                        throw e; // Don't log here because we aren't dealing with the Exception here.
+                    } else {
+                        Log.w(LOG_TAG, "ReportSender of class " + sender.getClass().getName()
+                                + " failed but other senders completed their task. ACRA will not send this report again.");
+                    }
                 }
+            } else {
+                Log.d(LOG_TAG, "skipping sending of " + errorContent.getProperty(ReportField.REPORT_ID) +
+                        " with sender "+sender.getClass().getSimpleName());
             }
+        }
+    }
+
+    private boolean shouldSend(CrashReportData data, ReportSender sender) {
+        boolean send = !ACRA.getConfig().checkReportSender() || checkReportSender(data, sender);
+        if (send && ACRA.getConfig().checkReportVersion()) {
+            send = checkReportVersion(data, sender);
+        }
+        return send;
+    }
+
+    private boolean checkReportVersion(CrashReportData data, ReportSender sender) {
+        String versionCode = data.getProperty(ReportField.APP_VERSION_CODE);
+
+        return versionCode != null &&
+               versionCode.equals(String.valueOf(getCurrentVersionCode()));
+    }
+
+    private int getCurrentVersionCode() {
+        final PackageManagerWrapper pm = new PackageManagerWrapper(context);
+        PackageInfo info = pm.getPackageInfo();
+        return info != null ? info.versionCode : -1;
+    }
+
+    private boolean checkReportSender(CrashReportData data, ReportSender sender) {
+        String usedSender = data.getProperty(ReportField.REPORT_SENDER);
+        if (TextUtils.isEmpty(usedSender)) {
+            return true;
+        } else if (sender instanceof GoogleFormSender) {
+            return usedSender.equals("formKey:" +ACRA.getConfig().formKey());
+        } else if (sender instanceof EmailIntentSender) {
+            return usedSender.equals("mailto:" + ACRA.getConfig().mailTo());
+        } else if (sender instanceof HttpPostSender) {
+            return usedSender.equals(ACRA.getConfig().formUri());
+        } else {
+            return true;
         }
     }
 

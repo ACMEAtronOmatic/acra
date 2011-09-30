@@ -40,6 +40,7 @@ import android.content.SharedPreferences;
 import android.os.Looper;
 import android.text.format.Time;
 import android.util.Log;
+import android.view.InflateException;
 import android.widget.Toast;
 
 /**
@@ -259,6 +260,15 @@ public class ErrorReporter implements Thread.UncaughtExceptionHandler {
         Log.e(ACRA.LOG_TAG, "ACRA caught a " + e.getClass().getSimpleName() + " exception for " + mContext.getPackageName() + ". Building report.");
 
         // Generate and send crash report
+
+        if (e instanceof OutOfMemoryError || e.getCause() instanceof InflateException) {
+            Log.d(ACRA.LOG_TAG, "ignoring exception:"+e.getClass().getSimpleName());
+            if (mDfltExceptionHandler != null) {
+                mDfltExceptionHandler.uncaughtException(t, e);
+            }
+            return;
+        }
+
         final Thread worker = handleException(e, mReportingInteractionMode, false);
 
         if (mReportingInteractionMode == ReportingInteractionMode.TOAST) {
